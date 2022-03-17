@@ -17,11 +17,10 @@
     "typescript": "^4.5.5"
   },
   "dependencies": {
-    "@pdftron/pdfnet-node": "^9.2.0-1",
+    "express": "^4.17.3",
     "pdf-parse": "^1.1.1",
     "pdf-table-extractor": "^1.0.3",
-    "pdf2html": "^2.6.3",
-    "pdf2json": "^2.0.0",
-    "pdfjs-dist": "*"
+    "pdfjs-dist": "*",
+    "pg": "^8.7.3"
   }
 }
