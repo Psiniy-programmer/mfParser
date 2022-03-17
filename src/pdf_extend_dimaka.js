@@ -242,7 +242,7 @@ pdf_table_extractor = function(doc){
 
       var saveTextArray = [];
 
-      return page.getOperatorList().then(function (opList, moreParams) {
+      return page.getOperatorList().then(function (opList) {
 
         // Get rectangle first
         var showed = {};
@@ -716,6 +716,7 @@ pdf_table_extractor = function(doc){
           }
           while (item = content.items.shift()) {
             let isMarkedRect = false;
+            // console.log('item', item.str)
 
             x = item.transform[4];
             y = item.transform[5];

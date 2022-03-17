@@ -5,7 +5,7 @@
   "main": "out/parser.js",
   "scripts": {
     "praser": "tsc --outDir out src/parser.ts && node out/parser.js",
-    "html": "tsc --outDir out src/pdfNet/main.ts && node out/main.js",
+    "html": "tsc --outDir out src/customParser.ts && node out/customParser.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

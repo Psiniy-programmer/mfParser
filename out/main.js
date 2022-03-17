@@ -99,6 +99,6 @@ function success(result) {
 function error(err) {
     console.error('Error: ' + err);
 }
-pdf_table_extractor("test_file copy.pdf", success, error);
+pdf_table_extractor("main.pdf", success, error);
 // 345.91 768.12 -> 335 = start, 335 + 29 = 365
 // 375.7 768.12
