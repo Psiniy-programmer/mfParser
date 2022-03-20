@@ -14,11 +14,15 @@ app.use(
 )
 
 app.get('/', (request, response) => {
-  mockedInsertDirection();
-  response.json({ info: 'Node.js, Express, and Postgres API' })
+  // mockedInsertDirection();
+  response.json({info: 'Node.js, Express, and Postgres API'})
 })
 
-app.post('/direc', db.insertDirection);
+app.post('/direction', db.insertDirection);
+app.get('/direction', db.getDirections);
+app.get('/direction/:id', db.getDirectionsById);
+app.delete('/direction', db.deleteDirections);
+app.put('/direction', db.putPointsInDirection)
 
 app.listen(port, () => {
   console.log(`App running on port ${port}.`)

@@ -14,3 +14,17 @@ export type Direction = {
 }
 
 export type Table = Direction[]
+
+// CREATE TABLE Directions (
+// 	code var PRIMARY KEY,
+// 	name varchar,
+// 	pointsId int
+// );
+//
+// CREATE TABLE Points (
+// 	id SERIAL PRIMARY KEY,
+// 	codeId INTEGER REFERENCES Directions (code),
+// 	subjectName varchar,
+// 	value varchar,
+// 	isOptional boolean
+// );
