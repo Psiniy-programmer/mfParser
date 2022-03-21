@@ -1,8 +1,10 @@
-
-
 var fs = require('fs');
 const {maxHeaderSize} = require("http");
-Image = function(){ };
+Image = function () {
+};
+
+const TABLE_HEADER_START = 'на образовательные';
+const TABLE_HEADER_TEMPLATE = 'Мытищинского';
 
 const checkOnColor = (colorArray) => {
   return colorArray.every((color) => color < 100);
@@ -35,7 +37,7 @@ const func = (arr) => {
 }
 
 // HACK few hacks to let PDF.js be loaded not as a module in global space.
-function xmlEncode(s){
+function xmlEncode(s) {
   var i = 0, ch;
   s = String(s);
   while (i < s.length && (ch = s[i]) !== '&' && ch !== '<' &&
@@ -155,10 +157,10 @@ DOMElement.prototype = {
 }
 
 global.document = {
-  childNodes : [],
+  childNodes: [],
 
   get currentScript() {
-    return { src: '' };
+    return {src: ''};
   },
 
   get documentElement() {
@@ -193,12 +195,12 @@ PDFJS.cMapUrl = 'pdfjs-dist/cmaps/';
 PDFJS.cMapPacked = true;
 
 
-
 // modify from https://github.com/mozilla/pdf.js/blob/master/examples/node/pdf2svg.js
-pdf_table_extractor_progress = function(result){
+pdf_table_extractor_progress = function (result) {
 };
 
-pdf_table_extractor = function(doc){
+pdf_table_extractor = function (doc, isWithoutRusText, isDebugMode) {
+  console.log('doc',doc);
   var numPages = doc.numPages;
   var result = {};
   var allCells = {};
@@ -207,7 +209,7 @@ pdf_table_extractor = function(doc){
   result.currentPages = 0;
   result.rects = {};
 
-  var transform_fn = function(m1, m2) {
+  var transform_fn = function (m1, m2) {
     return [
       m1[0] * m2[0] + m1[2] * m2[1],
       m1[1] * m2[0] + m1[3] * m2[1],
@@ -218,27 +220,31 @@ pdf_table_extractor = function(doc){
     ];
   };
 
-  var applyTransform_fn = function(p, m) {
+  var applyTransform_fn = function (p, m) {
     var xt = p[0] * m[0] + p[1] * m[2] + m[4];
     var yt = p[0] * m[1] + p[1] * m[3] + m[5];
     return [xt, yt];
   };
 
+  let isMFTable = isWithoutRusText ?? false;
 
   var lastPromise = Promise.resolve(); // will be used to chain promises
   var loadPage = function (pageNum) {
+    let curTableTitle = '';
     return doc.getPage(pageNum).then(function (page) {
+      console.log('page', pageNum, '\n', page);
       var verticles = [];
       var horizons = [];
       var merges = {};
       var merge_alias = {};
-      var transformMatrix = [1,0,0,1,0,0];;
+      var transformMatrix = [1, 0, 0, 1, 0, 0];
+      ;
       var transformStack = [];
       var tempArray = [];
 
       var saveArray = [];
 
-      const colorsArr= [];
+      const colorsArr = [];
 
       var saveTextArray = [];
 
@@ -258,7 +264,7 @@ pdf_table_extractor = function(doc){
         var edges = [];
         var line_max_width = 2;
         let numb = 0;
-
+        // console.log('ops', opList.fnArray);
         while (opList.fnArray.length) {
           var fn = opList.fnArray.shift();
           var args = opList.argsArray.shift();
@@ -284,14 +290,12 @@ pdf_table_extractor = function(doc){
                     const yMax = y + height;
 
                     tempArray.push({
-                      x,y,width,height,xMin, xMax, yMin, yMax,
+                      x, y, width, height, xMin, xMax, yMin, yMax,
                       offsetWidth: xMax - x
                     });
-                    // console.log(' rect = ', x, y, '\n sizez = ', width, height, `\n X min = ${xMin} max = ${xMax} \n Y min = ${yMin} max = ${yMax}` ,'\n numb = ', numb ,'\n___')
                     numb++;
                   }
-                  edges.push({y:y, x:x, width:width, height:height, transform: transformMatrix});
-                  // console.log('parse 1 ', 'x',x,'y',y, fn);
+                  edges.push({y: y, x: x, width: width, height: height, transform: transformMatrix});
                 }
               } else if (op == PDFJS.OPS.moveTo) {
                 current_x = args[1].shift();
@@ -300,27 +304,56 @@ pdf_table_extractor = function(doc){
                 x = args[1].shift();
                 y = args[1].shift();
                 if (current_x == x) {
-                  edges.push({y: Math.min(y, current_y), x: x - lineWidth / 2, width: lineWidth, height: Math.abs(y - current_y), transform: transformMatrix});
+                  edges.push({
+                    y: Math.min(y, current_y),
+                    x: x - lineWidth / 2,
+                    width: lineWidth,
+                    height: Math.abs(y - current_y),
+                    transform: transformMatrix
+                  });
                 } else if (current_y == y) {
-                  edges.push({x: Math.min(x, current_x), y: y - lineWidth / 2, height: lineWidth, width: Math.abs(x - current_x), transform: transformMatrix});
+                  edges.push({
+                    x: Math.min(x, current_x),
+                    y: y - lineWidth / 2,
+                    height: lineWidth,
+                    width: Math.abs(x - current_x),
+                    transform: transformMatrix
+                  });
                 }
                 current_x = x;
                 current_y = y;
-              } else {
-                // throw ('constructPath ' + op);
               }
             }
           } else if (PDFJS.OPS.save == fn) {
+            console.log('args save', args, fn);
             transformStack.push(transformMatrix);
-          } else if (PDFJS.OPS.restore == fn ){
+          } else if (PDFJS.OPS.restore == fn) {
             transformMatrix = transformStack.pop();
           } else if (PDFJS.OPS.transform == fn) {
             transformMatrix = transform_fn(transformMatrix, args);
           } else if (PDFJS.OPS.setStrokeRGBColor == fn) {
             strokeRGBColor = args;
+          } else if (PDFJS.OPS.setFillCMYKColor === fn) {
+            console.log('args', args, fn);
+          } else if (PDFJS.OPS.eoFillStroke === fn) {
+            console.log('args eofFill', args, fn);
+          } else if (PDFJS.OPS.setFillColorSpace === fn) {
+            console.log('args setFillColorSpace', args, fn);
+          } else if (PDFJS.OPS.setStrokeColor === fn) {
+            console.log('args setStrokeColor', args, fn);
+          } else if (PDFJS.OPS.setFillColor === fn) {
+            console.log('args setFillColor', args, fn);
+          } else if (PDFJS.OPS.setFillColorN === fn) {
+            console.log('args setFillColorN', args, fn);
+          } else if (PDFJS.OPS.setFillGray === fn) {
+            console.log('args setFillGray', args, fn);
+          } else if (PDFJS.OPS.setStrokeRGBColor === fn) {
+            console.log('args setStrokeRGBColor', args, fn);
           } else if (PDFJS.OPS.setFillRGBColor == fn) {
             if (!checkOnColor(args) && save_width < 100) {
-              // console.log('parse 2pdf fill', args[0], args[1], args[2], fn, save_x, save_y);
+              // 335.83 762.6
+              // 365.59 762.6
+              // console.log('args', args, save_x, save_y);
               colorsArr.push({
                 x: save_x,
                 y: save_y,
@@ -329,7 +362,7 @@ pdf_table_extractor = function(doc){
                 xMin: save_x,
                 xMax: save_x + save_width,
                 yMin: save_y,
-                yMax: save_y + save_height/2
+                yMax: save_y + save_height / 2
               });
 
               save_y = undefined;
@@ -339,14 +372,14 @@ pdf_table_extractor = function(doc){
           } else if (PDFJS.OPS.setLineWidth == fn) {
             lineWidth = args[0];
           } else if (['eoFill'].indexOf(REVOPS[fn]) >= 0) {
-          } else if ('undefined' === typeof(showed[fn])) {
+            // console.log('eo', args, fn)
+          } else if ('undefined' === typeof (showed[fn])) {
             showed[fn] = REVOPS[fn];
           } else if (PDFJS.OPS.endPath == fn) {
-            // console.log('args', args)
           }
         }
 
-        edges = edges.map(function(edge){
+        edges = edges.map(function (edge) {
           var point1 = applyTransform_fn([edge.x, edge.y], edge.transform);
           var point2 = applyTransform_fn([edge.x + edge.width, edge.y + edge.height], edge.transform);
           return {
@@ -358,18 +391,22 @@ pdf_table_extractor = function(doc){
         });
         // merge rectangle to verticle lines and horizon lines
         edges1 = JSON.parse(JSON.stringify(edges));
-        edges1.sort(function(a, b){ return (a.x - b.x) || (a.y - b.y); });
+        edges1.sort(function (a, b) {
+          return (a.x - b.x) || (a.y - b.y);
+        });
         edges2 = JSON.parse(JSON.stringify(edges));
-        edges2.sort(function(a, b){ return (a.y - b.y) || (a.x - b.x); });
+        edges2.sort(function (a, b) {
+          return (a.y - b.y) || (a.x - b.x);
+        });
 
         // get verticle lines
         var current_x = null;
         var current_y = null;
         var current_height = 0;
         var lines = [];
-        var lines_add_verticle = function(lines, top, bottom){
+        var lines_add_verticle = function (lines, top, bottom) {
           var hit = false;
-          for (var i = 0; i < lines.length; i ++) {
+          for (var i = 0; i < lines.length; i++) {
             if (lines[i].bottom < top || lines[i].top > bottom) {
               continue;
             }
@@ -435,9 +472,9 @@ pdf_table_extractor = function(doc){
         current_x = null;
         current_y = null;
         var current_width = 0;
-        var lines_add_horizon = function(lines, left, right){
+        var lines_add_horizon = function (lines, left, right) {
           var hit = false;
-          for (var i = 0; i < lines.length; i ++) {
+          for (var i = 0; i < lines.length; i++) {
             if (lines[i].right < left || lines[i].left > right) {
               continue;
             }
@@ -495,8 +532,8 @@ pdf_table_extractor = function(doc){
         }
         horizons.push({y: current_y, lines: lines});
 
-        var search_index = function(v, list) {
-          for (var i = 0; i < list.length; i ++) {
+        var search_index = function (v, list) {
+          for (var i = 0; i < list.length; i++) {
             if (Math.abs(list[i] - v) < 5) {
               return i;
             }
@@ -505,27 +542,37 @@ pdf_table_extractor = function(doc){
         };
 
         // handle merge cells
-        x_list = verticles.map(function(a){ return a.x; });
+        x_list = verticles.map(function (a) {
+          return a.x;
+        });
 
         // check top_out and bottom_out
-        var y_list = horizons.map(function(a){ return a.y; }).sort(function(a, b) { return b - a; });
+        var y_list = horizons.map(function (a) {
+          return a.y;
+        }).sort(function (a, b) {
+          return b - a;
+        });
         var y_max = verticles
-          .map(function(verticle) { return verticle.lines[0].bottom; })
+          .map(function (verticle) {
+            return verticle.lines[0].bottom;
+          })
           .sort().reverse()[0];
         var y_min = verticles
-          .map(function(verticle) { return verticle.lines[verticle.lines.length - 1].top; })
+          .map(function (verticle) {
+            return verticle.lines[verticle.lines.length - 1].top;
+          })
           .sort()[0];
         var top_out = search_index(y_min, y_list) == -1 ? 1 : 0;
         var bottom_out = search_index(y_max, y_list) == -1 ? 1 : 0;
 
         var verticle_merges = {};
         // skip the 1st lines and final lines
-        for (var r = 0; r < horizons.length - 2 + top_out + bottom_out; r ++) {
+        for (var r = 0; r < horizons.length - 2 + top_out + bottom_out; r++) {
           hor = horizons[bottom_out + horizons.length - r - 2];
           lines = hor.lines.slice(0);
           col = search_index(lines[0].left, x_list);
           if (col != 0) {
-            for (var c = 0; c < col; c ++) {
+            for (var c = 0; c < col; c++) {
               verticle_merges[[r, c].join('-')] = {row: r, col: c, width: 1, height: 2};
             }
           }
@@ -533,14 +580,14 @@ pdf_table_extractor = function(doc){
             left_col = search_index(line.left, x_list);
             right_col = search_index(line.right, x_list);
             if (left_col != col) {
-              for (var c = col; c < left_col; c ++) {
+              for (var c = col; c < left_col; c++) {
                 verticle_merges[[r, c].join('-')] = {row: r, col: c, width: 1, height: 2};
               }
             }
             col = right_col;
           }
           if (col != verticles.length - 1 + top_out) {
-            for (var c = col; c < verticles.length - 1 + top_out; c ++) {
+            for (var c = col; c < verticles.length - 1 + top_out; c++) {
               verticle_merges[[r, c].join('-')] = {row: r, col: c, width: 1, height: 2};
             }
           }
@@ -551,9 +598,9 @@ pdf_table_extractor = function(doc){
           for (var r_c in verticle_merges) {
             var m = verticle_merges[r_c];
             var final_id = [m.row + m.height - 1, m.col + m.width - 1].join('-');
-            if ('undefined' !== typeof(verticle_merges[final_id])) {
+            if ('undefined' !== typeof (verticle_merges[final_id])) {
               verticle_merges[r_c].height += verticle_merges[final_id].height - 1;
-              delete(verticle_merges[final_id]);
+              delete (verticle_merges[final_id]);
               merged = true;
               break;
             }
@@ -565,12 +612,12 @@ pdf_table_extractor = function(doc){
 
         var horizon_merges = {};
 
-        for (var c = 0; c < verticles.length - 2; c ++) {
+        for (var c = 0; c < verticles.length - 2; c++) {
           ver = verticles[c + 1];
           lines = ver.lines.slice(0);
           row = search_index(lines[0].bottom, y_list) + bottom_out;
           if (row != 0) {
-            for (var r = 0; r < row; r ++) {
+            for (var r = 0; r < row; r++) {
               horizon_merges[[r, c].join('-')] = {row: r, col: c, width: 2, height: 1};
             }
           }
@@ -583,14 +630,14 @@ pdf_table_extractor = function(doc){
             }
             bottom_row = search_index(line.bottom, y_list) + bottom_out;
             if (bottom_row != row) {
-              for (var r = bottom_row; r < row; r ++) {
+              for (var r = bottom_row; r < row; r++) {
                 horizon_merges[[r, c].join('-')] = {row: r, col: c, width: 2, height: 1};
               }
             }
             row = top_row;
           }
           if (row != horizons.length - 1 + bottom_out + top_out) {
-            for (var r = row; r < horizons.length - 1 + bottom_out + top_out; r ++) {
+            for (var r = row; r < horizons.length - 1 + bottom_out + top_out; r++) {
               horizon_merges[[r, c].join('-')] = {row: r, col: c, width: 2, height: 1};
             }
           }
@@ -599,7 +646,7 @@ pdf_table_extractor = function(doc){
           horizons.unshift({y: y_min, lines: []});
         }
         if (bottom_out) {
-          horizons.push({y:y_max, lines:[]});
+          horizons.push({y: y_max, lines: []});
         }
 
         while (true) {
@@ -607,9 +654,9 @@ pdf_table_extractor = function(doc){
           for (var r_c in horizon_merges) {
             var m = horizon_merges[r_c];
             var final_id = [m.row + m.height - 1, m.col + m.width - 1].join('-');
-            if ('undefined' !== typeof(horizon_merges[final_id])) {
+            if ('undefined' !== typeof (horizon_merges[final_id])) {
               horizon_merges[r_c].width += horizon_merges[final_id].width - 1;
-              delete(horizon_merges[final_id]);
+              delete (horizon_merges[final_id]);
               merged = true;
               break;
             }
@@ -620,27 +667,27 @@ pdf_table_extractor = function(doc){
         }
         merges = verticle_merges;
         for (var id in horizon_merges) {
-          if ('undefined' !== typeof(merges[id])) {
+          if ('undefined' !== typeof (merges[id])) {
             merges[id].width = horizon_merges[id].width;
           } else {
             merges[id] = horizon_merges[id];
           }
         }
         for (var id in merges) {
-          for (var c = 0; c < merges[id].width; c ++) {
-            for (var r = 0; r < merges[id].height; r ++) {
+          for (var c = 0; c < merges[id].width; c++) {
+            for (var r = 0; r < merges[id].height; r++) {
               if (c == 0 && r == 0) {
                 continue;
               }
-              delete(merges[[r + merges[id].row, c + merges[id].col].join('-')]);
+              delete (merges[[r + merges[id].row, c + merges[id].col].join('-')]);
             }
           }
         }
 
         merge_alias = {};
         for (var id in merges) {
-          for (var c = 0; c < merges[id].width; c ++) {
-            for (var r = 0; r < merges[id].height; r ++) {
+          for (var c = 0; c < merges[id].width; c++) {
+            for (var r = 0; r < merges[id].height; r++) {
               if (r == 0 && c == 0) {
                 continue;
               }
@@ -648,11 +695,11 @@ pdf_table_extractor = function(doc){
             }
           }
         }
-      }).then(function(){
+      }).then(function () {
         return page.getTextContent().then(function (content) {
           // сортируем массив прямоугольников
           const sortedRects = tempArray
-            .sort((a ,b) => (a.offsetWidth) - (b.offsetWidth));
+            .sort((a, b) => (a.offsetWidth) - (b.offsetWidth));
           let minRect = 0;
           let tempObj = {};
           // ищем повторения прямоугольников
@@ -706,24 +753,38 @@ pdf_table_extractor = function(doc){
           tables = [];
           table_pos = [];
 
-          for (var i = 0; i < horizons.length - 1; i ++) {
+          for (var i = 0; i < horizons.length - 1; i++) {
             tables[i] = [];
             table_pos[i] = [];
-            for (var j = 0; j < verticles.length - 1; j ++) {
+            for (var j = 0; j < verticles.length - 1; j++) {
               tables[i][j] = '';
               table_pos[i][j] = null;
             }
           }
           while (item = content.items.shift()) {
             let isMarkedRect = false;
-            // console.log('item', item.str)
+
+            if (
+              item.str.toLowerCase().includes(TABLE_HEADER_START.toLowerCase())
+            ) {
+              if (item.str.toLowerCase().includes(TABLE_HEADER_TEMPLATE.toLowerCase())) {
+                curTableTitle = item.str;
+                isMFTable = true;
+              } else {
+                isMFTable = false;
+              }
+            }
+
+            if (!isMFTable && !isDebugMode) {
+              continue;
+            }
 
             x = item.transform[4];
             y = item.transform[5];
 
             rectsWithRowHeights.forEach((rectItem) => {
               if (x >= rectItem.xMin && x <= rectItem.xMax
-                &&  y <= rectItem.y && y >= rectItem.y - rectItem.deltaHeight/2
+                && y <= rectItem.y && y >= rectItem.y - rectItem.deltaHeight / 2
                 && item.str.trim().length
               ) {
                 colorsArr.forEach((color) => {
@@ -737,7 +798,7 @@ pdf_table_extractor = function(doc){
             })
 
             var col = -1;
-            for (var i = 0; i < verticles.length - 1 ; i ++)  {
+            for (var i = 0; i < verticles.length - 1; i++) {
               if (x >= verticles[i].x && x < verticles[i + 1].x) {
                 col = i;
                 break;
@@ -747,7 +808,7 @@ pdf_table_extractor = function(doc){
               continue;
             }
             var row = -1;
-            for (var i = 0; i < horizons.length - 1 ; i ++)  {
+            for (var i = 0; i < horizons.length - 1; i++) {
               if (y >= horizons[i].y && y < horizons[i + 1].y) {
                 row = horizons.length - i - 2;
                 break;
@@ -757,7 +818,7 @@ pdf_table_extractor = function(doc){
               continue;
             }
 
-            if ('undefined' !== typeof(merge_alias[row + '-' + col])) {
+            if ('undefined' !== typeof (merge_alias[row + '-' + col])) {
               id = merge_alias[row + '-' + col];
               row = id.split('-')[0];
               col = id.split('-')[1];
@@ -766,10 +827,11 @@ pdf_table_extractor = function(doc){
               tables[row][col] += "\n";
             }
             table_pos[row][col] = y;
-            tables[row][col] += isMarkedRect ? '#' + item.str : item.str ;
+            tables[row][col] += isMarkedRect ? '#' + item.str : item.str;
           }
-          // console.log('vals', tables);
+
           if (tables.length) {
+            // const notEmptyTables = tables.filter((table) => table.some((row) => row.length))
             result.pageTables.push({
               page: pageNum,
               tables: tables,
@@ -777,11 +839,12 @@ pdf_table_extractor = function(doc){
               merge_alias: merge_alias,
               width: verticles.length - 1,
               height: horizons.length - 1,
+              tableTitle: curTableTitle
             });
             result['rects'][result.currentPages] = colorsArr
           }
-          result.currentPages ++;
-          if ('function' === typeof(pdf_table_extractor_progress)) {
+          result.currentPages++;
+          if ('function' === typeof (pdf_table_extractor_progress)) {
             pdf_table_extractor_progress(result);
           }
         });
@@ -789,36 +852,28 @@ pdf_table_extractor = function(doc){
     });
   };
 
-  for (var i = 1; i <= numPages; i++) {
+  for (var i = 4; i <= numPages; i++) {
     lastPromise = lastPromise.then(loadPage.bind(null, i));
   }
-  return lastPromise.then(function(){
-    // console.log('res', colorsArr);
+  return lastPromise.then(function () {
     return result;
   });
 };
 
 
-
-
-
-pdf_table_extractor_run = function (pdfPath,success,error){
+pdf_table_extractor_run = function (pdfPath, success, error, isWithoutRusText, isDebugMode) {
 
   var data = new Uint8Array(fs.readFileSync(pdfPath));
 
 // Will be using promises to load document, pages and misc data instead of
 // callback.
-  PDFJS.getDocument(data).then(pdf_table_extractor).then(success,error);
+  PDFJS.getDocument(data).then((doc) => pdf_table_extractor(doc, isWithoutRusText, isDebugMode)).then(success, error);
 
 
 };
 
 
-
-
-
-
-if((typeof module) !== 'undefined') {
+if ((typeof module) !== 'undefined') {
   module.exports = pdf_table_extractor_run;
 }
 

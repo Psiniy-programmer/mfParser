@@ -73,6 +73,7 @@ const parseDirection = (content: any, curStep: number, subjects: Subject[], isSa
   }
 
   const direction: Direction = {
+    pageNumber: 0,
     name: directionName,
     code: directionCode,
     grade: directionGrade,
@@ -155,6 +156,7 @@ function render_page(pageData: {
             .join('')
             .trim();
           obj.push({
+            isOptional: false, position: 0,
             name: resSubj,
             value: null
           });
@@ -182,5 +184,5 @@ const options = {
 
 pdf(dataBuffer, options).then(function (data: { text: any; }) {
   const dat = data.text;
-  fs.writeFile('output', data.text, ((err: any) => console.error(err)));
+  // fs.writeFile('output', data.text, ((err: any) => console.error(err)));
 });

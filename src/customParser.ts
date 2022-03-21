@@ -1,4 +1,6 @@
+import PDFDocument from "pdf-lib/cjs/api/PDFDocument";
 import {Direction, Subject, Table} from "./types";
+var fs = require('fs');
 
 var pdf_table_extractor = require("pdf-table-extractor");
 
@@ -60,8 +62,8 @@ function success(result) {
     })
   });
 
+  // console.log(JSON.stringify(result.pageTables));
   debugger
-  // console.log(JSON.stringify(result));
 }
 
 //Error
@@ -69,6 +71,12 @@ function error(err) {
   console.error('Error: ' + err);
 }
 
-pdf_table_extractor("files/code copy.pdf", success, error);
+const main = async () => {
+  pdf_table_extractor('files/code copy.pdf', success, error, false, true);
+}
+
+main();
 // 345.91 768.12 -> 335 = start, 335 + 29 = 365
 // 375.7 768.12
+// "g_d0_f4"
+// 335 401 29.28 14.06
