@@ -1,3 +1,4 @@
+const {addPointsWithDirection} = require("./utils/addPointsWithDirection");
 const Pool = require('pg').Pool
 const pool = new Pool({
   user: 'd.ovdenko',
@@ -65,55 +66,34 @@ const deleteDirections = (req, res) => {
   })
 }
 
-const postPointWidthDirection = async (req, res) => {
+const postSinglePointsWithDirection = async (req, res) => {
   const {name: directionName, points} = req.body;
-  // const id = parseInt(req.params.id);
-  const pointsIds = [];
 
-  await (async function () {
-    const client = await pool.connect()
+  const client = await pool.connect()
 
-    for (let i = 0; i < points.length; i++) {
-      const point = points[i];
-      const queryResult = await client.query(`
-      INSERT INTO Points (
-        subjectName, value, isOptional
-      ) VALUES (
-        ${point.name}, '${point.value}', ${point.isOptional}
-      ) RETURNING id;
-    `)
-      pointsIds.push(...queryResult.rows);
-    }
+  const singleQueryResult = await addPointsWithDirection(points, directionName, client);
 
-    const pointsIdsInArray = pointsIds.reduce((acc, cur, index) => {
-      if (index === pointsIds.length - 1) {
-        return acc + cur.id;
+  client.release();
+  res.status(200).json(singleQueryResult.rows);
+}
 
-      } else {
-        return acc + cur.id + ',';
-      }
-    }, '');
+const postMultiplePointsWithDirections = async (req, res) => {
+  const directionsArray = req.body;
+  const client = await pool.connect()
 
+  const directionsResult = [];
 
-    const directionQuery = await client.query(`
-      WITH InsertTable as (
-        INSERT INTO Directions (
-          name,
-          pointsId
-        ) VALUES (
-          '${directionName}', '{${pointsIdsInArray}}'
-        ) RETURNING code, pointsId
-      )
-      UPDATE Points set codeId = (
-        SELECT code from InsertTable
-      )
-      WHERE Points.id = ANY(
-        SELECT unnest(InsertTable.pointsId) from InsertTable
-      )
-    `);
-    client.release();
-    res.status(200).json(directionQuery.rows);
-  })()
+  for (let i = 0; i < directionsArray.length; i++) {
+    const direction = directionsArray[i];
+
+    const directionQueryResult = await addPointsWithDirection(direction.points, direction.name, client);
+    directionsResult.push(...directionQueryResult.rows);
+  }
+
+  client.release();
+
+  console.log('direc', directionsResult);
+  res.status(200).json(directionsResult);
 }
 
 const getPoints = (req, res) => {
@@ -135,6 +115,7 @@ module.exports = {
   getDirections,
   getDirectionsById,
   deleteDirections,
-  postPointWidthDirection,
+  postPointWidthDirection: postSinglePointsWithDirection,
+  postMultiplePointsWithDirections,
   getPoints
 }

@@ -27,6 +27,7 @@ app.get('/direction', db.getDirections);
 app.get('/direction/:id', db.getDirectionsById);
 app.delete('/direction', db.deleteDirections);
 app.post('/direction', db.postPointWidthDirection);
+app.post('/directions', db.postMultiplePointsWithDirections);
 
 app.get('/points', db.getPoints);
 
