@@ -65,33 +65,69 @@ const deleteDirections = (req, res) => {
   })
 }
 
-const putPointsInDirection = (req, res) => {
-  const id = parseInt(req.params.id);
-  console.log('req', req.body);
-  // if (id) {
-  const resIds = req.body.map((point) => {
-      pool.query(`
+const postPointWidthDirection = async (req, res) => {
+  const {name: directionName, points} = req.body;
+  // const id = parseInt(req.params.id);
+  const pointsIds = [];
+
+  await (async function () {
+    const client = await pool.connect()
+
+    for (let i = 0; i < points.length; i++) {
+      const point = points[i];
+      const queryResult = await client.query(`
       INSERT INTO Points (
         subjectName, value, isOptional
       ) VALUES (
         ${point.name}, '${point.value}', ${point.isOptional}
       ) RETURNING id;
-    `, (err, result) => {
-        if (err) {
-          console.error(err);
-          res.status(400).send(err);
-        }
+    `)
+      pointsIds.push(...queryResult.rows);
+    }
 
-        console.log('res', result.rows);
-        return result.rows;
-      })
-    })
-    // pool.query(`
-    //   UPDATE Directions SET (${code}, ${pointsId})
-    // `)
+    const pointsIdsInArray = pointsIds.reduce((acc, cur, index) => {
+      if (index === pointsIds.length - 1) {
+        return acc + cur.id;
 
-    res.status(200).json(resIds);
-  // }
+      } else {
+        return acc + cur.id + ',';
+      }
+    }, '');
+
+
+    const directionQuery = await client.query(`
+      WITH InsertTable as (
+        INSERT INTO Directions (
+          name,
+          pointsId
+        ) VALUES (
+          '${directionName}', '{${pointsIdsInArray}}'
+        ) RETURNING code, pointsId
+      )
+      UPDATE Points set codeId = (
+        SELECT code from InsertTable
+      )
+      WHERE Points.id = ANY(
+        SELECT unnest(InsertTable.pointsId) from InsertTable
+      )
+    `);
+    client.release();
+    res.status(200).json(directionQuery.rows);
+  })()
+}
+
+const getPoints = (req, res) => {
+
+  pool.query(`
+      SELECT * FROM Points 
+    `, (er, results) => {
+    if (er) {
+      console.error(er);
+    }
+
+    res.status(200).json(results.rows);
+  })
+
 }
 
 module.exports = {
@@ -99,5 +135,6 @@ module.exports = {
   getDirections,
   getDirectionsById,
   deleteDirections,
-  putPointsInDirection
+  postPointWidthDirection,
+  getPoints
 }

@@ -18,7 +18,7 @@ export type Table = Direction[]
 // CREATE TABLE Directions (
 // 	code var PRIMARY KEY,
 // 	name varchar,
-// 	pointsId int
+// 	pointsId int[10]
 // );
 //
 // CREATE TABLE Points (
