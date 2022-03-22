@@ -1,7 +1,7 @@
 export type Subject = {
 	name?: string,
 	value: number | null,
-	position: number,
+	position?: number,
 	isOptional: boolean
 }
 

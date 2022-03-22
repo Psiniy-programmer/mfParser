@@ -41,31 +41,44 @@ var pdf_table_extractor = require("pdf-table-extractor");
 var SPECIAL_SYMBOL = '#';
 var NAME_POSITION = 0;
 var CODE_POSITION = 1;
-var GRADE_POSITION = 2;
-var START_POINTS_POSITION = 3;
+var START_POINTS_POSITION = 2;
+var SUBJECTS_COUNT = 10;
+var FILE_NAME_ORIGINAL = 'files/code.pdf';
+var FILE_NAME_DOWNGRADE = 'files/code copy.pdf';
 var mockedSubjectNames = ['Русск. язык', 'Математика', 'Физика', 'Информатика и ИКТ', 'Обществознание', 'История', 'Иностранный язык', 'Биология', 'Литература', 'Творческий конкурс'];
+var resultTable = [];
 var isCode = function (word) {
     return /\d\d\.\d\d\.\d\d/.test(word);
 };
-function success(result) {
-    var resultTable = [];
-    var test = new Set();
+function successDowngraded(result) {
     // Первый прогон файла по НЕ закодированному тексту
     result.pageTables.forEach(function (page) {
         page.tables.forEach(function (row) {
+            if (row.every(function (item) { return !item.length; })) {
+                return;
+            }
+            var curRow = row[0].split(' ');
+            if (isCode(curRow[0]) && !isCode(curRow[1])) {
+                var temp = curRow[0];
+                curRow[0] = curRow[1];
+                curRow[1] = temp;
+            }
             // Т.К. первый прогон парсера будем делать по НЕ раскодированным русским буквам, возьмем необходимую информацию и строк таблицы
             // А именно код направления подготовки и его баллы
             // Во втором прогоне программы мы заполним пробелы
             // Если поле не является табличкой
-            if (!isCode(row[CODE_POSITION])) {
+            if (!isCode(curRow[CODE_POSITION])) {
                 return;
             }
             var points = [];
-            for (var column = START_POINTS_POSITION; column <= row.length - 1; column++) {
+            for (var column = START_POINTS_POSITION; column <= curRow.length - 1; column++) {
                 // Если поле помечено как экзамен по выбору
-                var isOptional = row[column].includes('#');
+                var isOptional = curRow[column].includes('#');
                 // Удаляем символ - метку
-                var pointsValue = isOptional ? row[column].replace(SPECIAL_SYMBOL, '') : row[column];
+                var pointsValue = isOptional ? curRow[column].replace(SPECIAL_SYMBOL, '') : curRow[column];
+                if (!mockedSubjectNames[points.length]) {
+                    continue;
+                }
                 points.push({
                     value: pointsValue,
                     position: column,
@@ -75,15 +88,46 @@ function success(result) {
                 });
             }
             var direction = {
-                code: row[CODE_POSITION],
+                code: curRow[CODE_POSITION],
                 points: points,
                 pageNumber: page.page
             };
-            test.add(row[CODE_POSITION]);
             resultTable.push(direction);
         });
     });
-    // console.log(JSON.stringify(result.pageTables));
+    console.log('result 1', resultTable);
+}
+function successOriginal(result) {
+    // Первый прогон файла по НЕ закодированному тексту
+    result.pageTables.forEach(function (page) {
+        page.tables.forEach(function (row) {
+            if (row.every(function (item) { return !item.length; }) || !row.some(function (item) { return isCode(item); })) {
+                return;
+            }
+            var curRow = row.filter(function (item) { return item.length; });
+            // Сохраним grade
+            var gradePos = curRow.length - SUBJECTS_COUNT - 1;
+            var grade = curRow[gradePos];
+            debugger;
+            // Сохраняем code
+            var codePos = gradePos - 1;
+            var code = curRow[codePos];
+            // Сохраним Название специализации (name)
+            var specNameLastPos = codePos;
+            var specName = '';
+            for (var i = 0; i < specNameLastPos; i++) {
+                specName += curRow[i].trim() + ' ';
+            }
+            // ИЩЕМ Ноду, в которой лежат данные с первого прогона по id специализации
+            for (var i = 0; i < resultTable.length; i++) {
+                if (resultTable[i].code.includes(code)) {
+                    resultTable[i].grade = grade;
+                    resultTable[i].name = specName;
+                }
+            }
+        });
+    });
+    console.log('result 2', resultTable);
     debugger;
 }
 //Error
@@ -92,7 +136,8 @@ function error(err) {
 }
 var main = function () { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
-        pdf_table_extractor('files/code copy.pdf', success, error, false, true);
+        pdf_table_extractor(FILE_NAME_DOWNGRADE, successDowngraded, error, false, false);
+        pdf_table_extractor(FILE_NAME_ORIGINAL, successOriginal, error, false, false);
         return [2 /*return*/];
     });
 }); };

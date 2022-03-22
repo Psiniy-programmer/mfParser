@@ -1,46 +1,60 @@
-import PDFDocument from "pdf-lib/cjs/api/PDFDocument";
 import {Direction, Subject, Table} from "./types";
-var fs = require('fs');
 
+var fs = require('fs');
 var pdf_table_extractor = require("pdf-table-extractor");
 
-const SPECIAL_SYMBOL = '#';
 
+const SPECIAL_SYMBOL = '#';
 const NAME_POSITION = 0;
 const CODE_POSITION = 1;
-const GRADE_POSITION = 2;
-const START_POINTS_POSITION = 3;
+const START_POINTS_POSITION = 2;
+const SUBJECTS_COUNT = 10;
 
+const FILE_NAME_ORIGINAL = 'files/code.pdf';
+const FILE_NAME_DOWNGRADE = 'files/code copy.pdf';
 const mockedSubjectNames = ['Русск. язык', 'Математика', 'Физика', 'Информатика и ИКТ', 'Обществознание', 'История', 'Иностранный язык', 'Биология', 'Литература', 'Творческий конкурс'];
+
+const resultTable: Table = [];
 
 const isCode = (word: string): boolean => {
   return /\d\d\.\d\d\.\d\d/.test(word);
 }
 
-function success(result) {
-
-  const resultTable: Table = [];
-  const test = new Set();
+function successDowngraded(result) {
 
   // Первый прогон файла по НЕ закодированному тексту
   result.pageTables.forEach((page) => {
     page.tables.forEach((row) => {
+      if (row.every((item) => !item.length)) {
+        return;
+      }
+      const curRow = row[0].split(' ');
+
+      if (isCode(curRow[0]) && !isCode(curRow[1])) {
+        const temp = curRow[0];
+        curRow[0] = curRow[1];
+        curRow[1] = temp;
+      }
       // Т.К. первый прогон парсера будем делать по НЕ раскодированным русским буквам, возьмем необходимую информацию и строк таблицы
       // А именно код направления подготовки и его баллы
       // Во втором прогоне программы мы заполним пробелы
 
       // Если поле не является табличкой
-      if (!isCode(row[CODE_POSITION])) {
+      if (!isCode(curRow[CODE_POSITION])) {
         return;
       }
 
       const points: Subject[] = [];
 
-      for (let column = START_POINTS_POSITION; column <= row.length - 1; column++) {
+      for (let column = START_POINTS_POSITION; column <= curRow.length - 1; column++) {
         // Если поле помечено как экзамен по выбору
-        const isOptional: boolean = row[column].includes('#');
+        const isOptional: boolean = curRow[column].includes('#');
         // Удаляем символ - метку
-        const pointsValue = isOptional ? row[column].replace(SPECIAL_SYMBOL, '') : row[column];
+        const pointsValue = isOptional ? curRow[column].replace(SPECIAL_SYMBOL, '') : curRow[column];
+
+        if (!mockedSubjectNames[points.length]) {
+          continue;
+        }
 
         points.push({
           value: pointsValue,
@@ -52,27 +66,69 @@ function success(result) {
       }
 
       const direction: Direction = {
-        code: row[CODE_POSITION],
+        code: curRow[CODE_POSITION],
         points,
         pageNumber: page.page as number
       }
 
-      test.add(row[CODE_POSITION])
       resultTable.push(direction);
     })
   });
-
-  // console.log(JSON.stringify(result.pageTables));
-  debugger
+  console.log('result 1', resultTable);
 }
+
+function successOriginal(result) {
+
+  // Первый прогон файла по НЕ закодированному тексту
+  result.pageTables.forEach((page) => {
+    page.tables.forEach((row) => {
+      if (row.every((item) => !item.length) || !row.some((item) => isCode(item))) {
+        return;
+      }
+
+      const curRow = row.filter((item) => item.length);
+
+      // Сохраним grade
+      const gradePos = curRow.length - SUBJECTS_COUNT - 1;
+      const grade = curRow[gradePos];
+
+      // Сохраняем code
+      const codePos = gradePos - 1
+      const code = curRow[codePos];
+
+      // Сохраним Название специализации (name)
+      const specNameLastPos = codePos;
+      let specName = '';
+
+      for (let i = 0; i < specNameLastPos; i++) {
+        specName += curRow[i].trim() + ' ';
+      }
+
+      // ИЩЕМ Ноду, в которой лежат данные с первого прогона по id специализации
+
+      for (let i = 0; i < resultTable.length; i++) {
+        if (resultTable[i].code.includes(code)) {
+          resultTable[i].grade = grade;
+          resultTable[i].name = specName;
+        }
+      }
+    })
+  });
+
+  console.log('result 2', resultTable);
+  debugger;
+}
+
 
 //Error
 function error(err) {
   console.error('Error: ' + err);
 }
 
+
 const main = async () => {
-  pdf_table_extractor('files/code copy.pdf', success, error, false, true);
+  pdf_table_extractor(FILE_NAME_DOWNGRADE, successDowngraded, error, false, false);
+  pdf_table_extractor(FILE_NAME_ORIGINAL, successOriginal, error, false, false);
 }
 
 main();

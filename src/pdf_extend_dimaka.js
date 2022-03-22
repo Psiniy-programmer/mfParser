@@ -852,7 +852,7 @@ pdf_table_extractor = function (doc, isWithoutRusText, isDebugMode) {
     });
   };
 
-  for (var i = 4; i <= numPages; i++) {
+  for (var i = 1; i <= numPages; i++) {
     lastPromise = lastPromise.then(loadPage.bind(null, i));
   }
   return lastPromise.then(function () {
