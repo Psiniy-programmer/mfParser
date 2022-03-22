@@ -10,7 +10,7 @@ export type Direction = {
 	code: string,
 	points: Subject[],
 	grade?: string,
-	pageNumber: number
+	pageNumber?: number
 }
 
 export type Table = Direction[]
@@ -18,7 +18,7 @@ export type Table = Direction[]
 // CREATE TABLE Directions (
 // 	code var PRIMARY KEY,
 // 	name varchar,
-// 	pointsId int[10]
+// 	pointsId int[10],
 // );
 //
 // CREATE TABLE Points (

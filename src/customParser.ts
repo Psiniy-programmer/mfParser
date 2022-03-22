@@ -35,6 +35,12 @@ function successDowngraded(result) {
         curRow[0] = curRow[1];
         curRow[1] = temp;
       }
+
+      if (isNaN(curRow[START_POINTS_POSITION]) && !isNaN(curRow[START_POINTS_POSITION + 1])) {
+        const temp = curRow[START_POINTS_POSITION];
+        curRow[START_POINTS_POSITION] = curRow[START_POINTS_POSITION + 1];
+        curRow[START_POINTS_POSITION + 1] = temp;
+      }
       // Т.К. первый прогон парсера будем делать по НЕ раскодированным русским буквам, возьмем необходимую информацию и строк таблицы
       // А именно код направления подготовки и его баллы
       // Во втором прогоне программы мы заполним пробелы
@@ -45,6 +51,7 @@ function successDowngraded(result) {
       }
 
       const points: Subject[] = [];
+      debugger
 
       for (let column = START_POINTS_POSITION; column <= curRow.length - 1; column++) {
         // Если поле помечено как экзамен по выбору
@@ -58,7 +65,6 @@ function successDowngraded(result) {
 
         points.push({
           value: pointsValue,
-          position: column,
           isOptional,
           // ИМЕНА НУЖНО БУДЕТ ВЗЯТЬ ТАКЖЕ СО ВТОРОГО ПРОГОНА ПО ХОРОШЕМУ
           name: mockedSubjectNames[points.length]
@@ -68,7 +74,6 @@ function successDowngraded(result) {
       const direction: Direction = {
         code: curRow[CODE_POSITION],
         points,
-        pageNumber: page.page as number
       }
 
       resultTable.push(direction);
@@ -86,8 +91,7 @@ function successOriginal(result) {
         return;
       }
 
-      const curRow = row.filter((item) => item.length);
-
+      const curRow = row.filter((item) => item.length)[0].split(' ').filter((item) => item.length);
       // Сохраним grade
       const gradePos = curRow.length - SUBJECTS_COUNT - 1;
       const grade = curRow[gradePos];
@@ -105,18 +109,19 @@ function successOriginal(result) {
       }
 
       // ИЩЕМ Ноду, в которой лежат данные с первого прогона по id специализации
-
       for (let i = 0; i < resultTable.length; i++) {
-        if (resultTable[i].code.includes(code)) {
+        const curItemTable = resultTable[i].code;
+
+        if (curItemTable.includes(code)) {
           resultTable[i].grade = grade;
           resultTable[i].name = specName;
+          break;
         }
       }
     })
   });
-
+// debugger;
   console.log('result 2', resultTable);
-  debugger;
 }
 
 
@@ -127,7 +132,7 @@ function error(err) {
 
 
 const main = async () => {
-  pdf_table_extractor(FILE_NAME_DOWNGRADE, successDowngraded, error, false, false);
+  pdf_table_extractor(FILE_NAME_DOWNGRADE, successDowngraded, error, true, false);
   pdf_table_extractor(FILE_NAME_ORIGINAL, successOriginal, error, false, false);
 }
 

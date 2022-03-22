@@ -63,6 +63,11 @@ function successDowngraded(result) {
                 curRow[0] = curRow[1];
                 curRow[1] = temp;
             }
+            if (isNaN(curRow[START_POINTS_POSITION]) && !isNaN(curRow[START_POINTS_POSITION + 1])) {
+                var temp = curRow[START_POINTS_POSITION];
+                curRow[START_POINTS_POSITION] = curRow[START_POINTS_POSITION + 1];
+                curRow[START_POINTS_POSITION + 1] = temp;
+            }
             // Т.К. первый прогон парсера будем делать по НЕ раскодированным русским буквам, возьмем необходимую информацию и строк таблицы
             // А именно код направления подготовки и его баллы
             // Во втором прогоне программы мы заполним пробелы
@@ -71,6 +76,7 @@ function successDowngraded(result) {
                 return;
             }
             var points = [];
+            debugger;
             for (var column = START_POINTS_POSITION; column <= curRow.length - 1; column++) {
                 // Если поле помечено как экзамен по выбору
                 var isOptional = curRow[column].includes('#');
@@ -81,7 +87,6 @@ function successDowngraded(result) {
                 }
                 points.push({
                     value: pointsValue,
-                    position: column,
                     isOptional: isOptional,
                     // ИМЕНА НУЖНО БУДЕТ ВЗЯТЬ ТАКЖЕ СО ВТОРОГО ПРОГОНА ПО ХОРОШЕМУ
                     name: mockedSubjectNames[points.length]
@@ -89,8 +94,7 @@ function successDowngraded(result) {
             }
             var direction = {
                 code: curRow[CODE_POSITION],
-                points: points,
-                pageNumber: page.page
+                points: points
             };
             resultTable.push(direction);
         });
@@ -104,11 +108,10 @@ function successOriginal(result) {
             if (row.every(function (item) { return !item.length; }) || !row.some(function (item) { return isCode(item); })) {
                 return;
             }
-            var curRow = row.filter(function (item) { return item.length; });
+            var curRow = row.filter(function (item) { return item.length; })[0].split(' ').filter(function (item) { return item.length; });
             // Сохраним grade
             var gradePos = curRow.length - SUBJECTS_COUNT - 1;
             var grade = curRow[gradePos];
-            debugger;
             // Сохраняем code
             var codePos = gradePos - 1;
             var code = curRow[codePos];
@@ -120,15 +123,17 @@ function successOriginal(result) {
             }
             // ИЩЕМ Ноду, в которой лежат данные с первого прогона по id специализации
             for (var i = 0; i < resultTable.length; i++) {
-                if (resultTable[i].code.includes(code)) {
+                var curItemTable = resultTable[i].code;
+                if (curItemTable.includes(code)) {
                     resultTable[i].grade = grade;
                     resultTable[i].name = specName;
+                    break;
                 }
             }
         });
     });
+    // debugger;
     console.log('result 2', resultTable);
-    debugger;
 }
 //Error
 function error(err) {
@@ -136,7 +141,7 @@ function error(err) {
 }
 var main = function () { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
-        pdf_table_extractor(FILE_NAME_DOWNGRADE, successDowngraded, error, false, false);
+        pdf_table_extractor(FILE_NAME_DOWNGRADE, successDowngraded, error, true, false);
         pdf_table_extractor(FILE_NAME_ORIGINAL, successOriginal, error, false, false);
         return [2 /*return*/];
     });

@@ -21,6 +21,10 @@ const Row = styled.div`
   }
 `
 
+const ValueCell = styled.p`
+  background-color: ${({ isOptional }) => isOptional && 'darkcyan'};
+`;
+
 export const Points = ({pointsData}) => {
   return <Wrapper>
     <Row>
@@ -36,7 +40,7 @@ export const Points = ({pointsData}) => {
             <p>{point.id}</p>
             <p>{point.codeid ?? '???'}</p>
             <p>{point.subjectname}</p>
-            <p>{point.value}</p>
+            <ValueCell isOptional={point.isoptional}>{point.value}</ValueCell>
             <p>{point.isoptional.toString()}</p>
           </Row>
         )

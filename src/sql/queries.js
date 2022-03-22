@@ -86,7 +86,7 @@ const postMultiplePointsWithDirections = async (req, res) => {
   for (let i = 0; i < directionsArray.length; i++) {
     const direction = directionsArray[i];
 
-    const directionQueryResult = await addPointsWithDirection(direction.points, direction.name, client);
+    const directionQueryResult = await addPointsWithDirection(direction.points, direction.name, direction.grade ?? '??', client);
     directionsResult.push(...directionQueryResult.rows);
   }
 

@@ -1,16 +1,14 @@
-const addPointsWithDirection = async (points, dirName, client) => {
+const addPointsWithDirection = async (points, dirName, dirGrade, client) => {
   const pointsIds = [];
 
   for (let i = 0; i < points.length; i++) {
-    const point = points[i];
+    const {name, value, isOptional} = points[i];
+    const q = {
+      text: 'INSERT INTO POINTS (subjectname, value, isOptional) VALUES ($1,$2,$3) RETURNING id',
+      values: [name, value, isOptional]
+    }
 
-    const queryResult = await client.query(`
-      INSERT INTO Points (
-        subjectName, value, isOptional
-      ) VALUES (
-        ${point.name}, '${point.value}', ${point.isOptional}
-      ) RETURNING id;
-    `)
+    const queryResult = await client.query(q);
     pointsIds.push(...queryResult.rows);
   }
 
@@ -23,13 +21,16 @@ const addPointsWithDirection = async (points, dirName, client) => {
     }
   }, '');
 
-  const directionQuery = await client.query(`
+  console.log('points', pointsIdsInArray);
+
+  return await client.query(`
       WITH InsertTable as (
         INSERT INTO Directions (
           name,
-          pointsId
+          pointsId,
+          grade
         ) VALUES (
-          '${dirName}', '{${pointsIdsInArray}}'
+          '${dirName}', '{${pointsIdsInArray}}', '${dirGrade}'
         ) RETURNING code, pointsId
       )
       UPDATE Points set codeId = (
@@ -39,8 +40,6 @@ const addPointsWithDirection = async (points, dirName, client) => {
         SELECT unnest(InsertTable.pointsId) from InsertTable
       ) RETURNING *
     `);
-
-  return directionQuery;
 };
 
 module.exports = {
