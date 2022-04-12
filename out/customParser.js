@@ -54,6 +54,7 @@ function successDowngraded(result) {
     // Первый прогон файла по НЕ закодированному тексту
     result.pageTables.forEach(function (page) {
         page.tables.forEach(function (row) {
+            var curStartPointsPos = START_POINTS_POSITION;
             if (row.every(function (item) { return !item.length; })) {
                 return;
             }
@@ -63,21 +64,21 @@ function successDowngraded(result) {
                 curRow[0] = curRow[1];
                 curRow[1] = temp;
             }
-            if (isNaN(curRow[START_POINTS_POSITION]) && !isNaN(curRow[START_POINTS_POSITION + 1])) {
-                var temp = curRow[START_POINTS_POSITION];
-                curRow[START_POINTS_POSITION] = curRow[START_POINTS_POSITION + 1];
-                curRow[START_POINTS_POSITION + 1] = temp;
+            if (isNaN(curRow[curStartPointsPos]) && !isNaN(curRow[curStartPointsPos + 1])) {
+                curStartPointsPos++;
+                // const temp = curRow[START_POINTS_POSITION];
+                // curRow[START_POINTS_POSITION] = curRow[START_POINTS_POSITION + 1];
+                // curRow[START_POINTS_POSITION + 1] = temp;
             }
             // Т.К. первый прогон парсера будем делать по НЕ раскодированным русским буквам, возьмем необходимую информацию и строк таблицы
             // А именно код направления подготовки и его баллы
             // Во втором прогоне программы мы заполним пробелы
             // Если поле не является табличкой
-            if (!isCode(curRow[CODE_POSITION])) {
+            if (!isCode(curRow[CODE_POSITION]) && !isCode(curRow[CODE_POSITION - 1])) {
                 return;
             }
             var points = [];
-            debugger;
-            for (var column = START_POINTS_POSITION; column <= curRow.length - 1; column++) {
+            for (var column = curStartPointsPos; column <= curRow.length - 1; column++) {
                 // Если поле помечено как экзамен по выбору
                 var isOptional = curRow[column].includes('#');
                 // Удаляем символ - метку
@@ -100,6 +101,7 @@ function successDowngraded(result) {
         });
     });
     console.log('result 1', resultTable);
+    debugger;
 }
 function successOriginal(result) {
     // Первый прогон файла по НЕ закодированному тексту
@@ -132,7 +134,7 @@ function successOriginal(result) {
             }
         });
     });
-    // debugger;
+    debugger;
     console.log('result 2', resultTable);
 }
 //Error

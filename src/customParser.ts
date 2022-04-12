@@ -25,10 +25,11 @@ function successDowngraded(result) {
   // Первый прогон файла по НЕ закодированному тексту
   result.pageTables.forEach((page) => {
     page.tables.forEach((row) => {
+      let curStartPointsPos = START_POINTS_POSITION;
       if (row.every((item) => !item.length)) {
         return;
       }
-      const curRow = row[0].split(' ');
+      let curRow = row[0].split(' ');
 
       if (isCode(curRow[0]) && !isCode(curRow[1])) {
         const temp = curRow[0];
@@ -36,24 +37,24 @@ function successDowngraded(result) {
         curRow[1] = temp;
       }
 
-      if (isNaN(curRow[START_POINTS_POSITION]) && !isNaN(curRow[START_POINTS_POSITION + 1])) {
-        const temp = curRow[START_POINTS_POSITION];
-        curRow[START_POINTS_POSITION] = curRow[START_POINTS_POSITION + 1];
-        curRow[START_POINTS_POSITION + 1] = temp;
+      if (isNaN(curRow[curStartPointsPos]) && !isNaN(curRow[curStartPointsPos + 1])) {
+        curStartPointsPos++;
+        // const temp = curRow[START_POINTS_POSITION];
+        // curRow[START_POINTS_POSITION] = curRow[START_POINTS_POSITION + 1];
+        // curRow[START_POINTS_POSITION + 1] = temp;
       }
       // Т.К. первый прогон парсера будем делать по НЕ раскодированным русским буквам, возьмем необходимую информацию и строк таблицы
       // А именно код направления подготовки и его баллы
       // Во втором прогоне программы мы заполним пробелы
 
       // Если поле не является табличкой
-      if (!isCode(curRow[CODE_POSITION])) {
+      if (!isCode(curRow[CODE_POSITION]) && !isCode(curRow[CODE_POSITION - 1])) {
         return;
       }
 
       const points: Subject[] = [];
-      debugger
 
-      for (let column = START_POINTS_POSITION; column <= curRow.length - 1; column++) {
+      for (let column = curStartPointsPos; column <= curRow.length - 1; column++) {
         // Если поле помечено как экзамен по выбору
         const isOptional: boolean = curRow[column].includes('#');
         // Удаляем символ - метку
@@ -80,6 +81,7 @@ function successDowngraded(result) {
     })
   });
   console.log('result 1', resultTable);
+  debugger
 }
 
 function successOriginal(result) {
@@ -120,7 +122,7 @@ function successOriginal(result) {
       }
     })
   });
-// debugger;
+  debugger
   console.log('result 2', resultTable);
 }
 
